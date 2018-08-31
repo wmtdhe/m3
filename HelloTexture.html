@@ -1,0 +1,148 @@
+
+<!DOCTYPE HTML> 
+<html lang="en"> 
+<head>
+<title>Hello Texture </title>
+<meta charset="utf-8"> 
+</head>
+
+    
+<script id="shader-vs" type="x-shader/x-vertex">
+   attribute vec3 aVertexNormal;
+   attribute vec3 aVertexPosition;
+   attribute vec2 aTexCoord;
+   
+   uniform mat4 uMVMatrix;
+   uniform mat4 uPMatrix;
+   
+   varying vec2 vTexCoord;
+
+   void main(void) { 
+     gl_Position = uPMatrix*uMVMatrix*vec4(aVertexPosition, 1.0);
+     vTexCoord=aTexCoord;    
+    }
+</script>
+  
+<script id="shader-fs" type="x-shader/x-fragment">
+precision mediump float;
+ 
+// Passed in from the vertex shader.
+varying vec2 vTexCoord;
+ 
+// The texture.
+uniform sampler2D uSampler;
+ 
+void main() {
+   gl_FragColor = texture2D(uSampler, vTexCoord);
+}
+</script>
+
+<script id="shader-vs1" type="x-shader/x-vertex">
+   attribute vec3 aVertexNormal;
+   attribute vec3 aVertexPosition;
+   
+    uniform mat4 uMVMatrix;
+    uniform mat4 uMVMatrixRotation;
+    uniform mat4 uPMatrix;
+    uniform mat3 uNMatrix;
+    uniform vec3 uLightPosition; // Already in Eye coordinates
+    //uniform float uReflection;
+    
+    uniform vec3 uAmbientLightColor;
+    uniform vec3 uDiffuseLightColor;
+    uniform vec3 uSpecularLightColor;
+    
+    const float shininess = 12.0;
+    varying vec4 rVertexPosition;
+    varying vec4 vColor;
+    //varying float ck;
+    void main(void) {
+
+    vec3 uAmbientMatColor=vec3(0.2,0.3,0.1);
+    vec3 uDiffuseMatColor=vec3(0.3,0.1,0.6);
+    vec3 uSpecularMatColor=vec3(0.2,0.1,0.5);
+    
+    // Get the vertex position in eye coordinates
+    vec4 vertexPositionEye4 = uMVMatrix * vec4(aVertexPosition, 1.0);
+    vec3 vertexPositionEye3 = vertexPositionEye4.xyz;
+  
+    // Calculate the vector (l) to the light source
+     vec4 vPosition = uMVMatrix*vec4(aVertexPosition, 1.0);
+    vec3 vectorToLightSource = normalize(uLightPosition - vPosition.xyz);
+    
+    // Transform the normal (n) to eye coordinates
+    vec4 vVertexNormal = uMVMatrix*vec4(aVertexNormal, 1.0);
+    vec3 normalEye =  normalize(vVertexNormal.xyz);
+    
+    // Calculate n dot l for diffuse lighting
+    float diffuseLightWeighting = max(dot(normalEye, 
+                                    vectorToLightSource), 0.0);
+                                       
+    // Calculate the reflection vector (r) that is needed for specular light
+    vec3 reflectionVector = normalize(reflect(-vectorToLightSource, 
+                                             normalEye));
+    
+    // The camera in eye coordinates is located at the origin and is pointing
+    // along the negative z-axis. Calculate viewVector (v) 
+    // in eye coordinates as:
+    // (0.0, 0.0, 0.0) - vertexPositionEye3
+    vec3 viewVectorEye = -normalize(vertexPositionEye3);
+    
+    float rdotv = max(dot(reflectionVector, viewVectorEye), 0.0);
+    
+    float specularLightWeighting = pow(rdotv, shininess);
+
+    // Sum up all three reflection components and send to the fragment shader
+    
+   
+    vColor = vec4((uAmbientLightColor * uAmbientMatColor)
+                + ((uDiffuseLightColor * uDiffuseMatColor) * diffuseLightWeighting)
+                + ((uSpecularLightColor * uSpecularMatColor) * specularLightWeighting),1.0);
+    
+      
+     //environment
+	 vec4 tNormal = uMVMatrix * vec4(aVertexNormal, 0.0);
+     vec3 worldEyeVec=normalize(vertexPositionEye3);
+     vec3 normal =  normalize(tNormal.xyz);
+     vec3 R=reflect(worldEyeVec,normal);
+	 rVertexPosition = normalize(uMVMatrixRotation * vec4(R, 1.0));
+     //ck=uReflection;
+     gl_Position = uPMatrix*uMVMatrix*vec4(aVertexPosition, 1.0);
+   
+
+    }
+</script>
+  
+<script id="shader-fs1" type="x-shader/x-fragment">
+precision mediump float;
+varying vec4 vColor;
+uniform samplerCube uSampler;
+varying vec4 rVertexPosition;
+uniform int uReflection;
+void main(void) {
+    if (uReflection==1)
+    {gl_FragColor = textureCube(uSampler,rVertexPosition.xyz);}
+    else
+    {gl_FragColor = vColor;}
+
+ }
+</script>
+
+<script src="gl-matrix-min.js"></script> 
+<script src="webgl-utils.js"></script>   
+<script src="HelloTexture.js"></script>
+<script src="norm.js"></script> 
+
+<body onload="startup();">
+<canvas id="myGLCanvas" width="1000" height="1000"></canvas>
+<h3>Instructions</h3>
+<p>Press "A" or "D" to rotate teapot itself to the left or the right.</p>
+<p>Press "W" or "S" to rotate teapot itself up or down.</p>
+<p>Press "1" or "3" to rotate teapot left or right in the skybox.</p>
+<p>Press "2" or "4" to rotate teapot up or down in the skybox.</p>
+    <fieldset>
+    <legend>Reflection</legend>
+    <input type="checkbox" name="primitive" id="reflection" value="reflection">Reflection, Environment mapping
+           </fieldset>
+</body>
+</html>
